@@ -1,10 +1,14 @@
+#ifdef _WIN32
 #include <windows.h> //最優先で読み込む必要がある
+#include <psapi.h>
+#endif
 
 #include "foldsToEdges.h"
 #include "ftcp.h"
 
+#ifdef _OPENMP
 #include <omp.h>
-#include <sys/time.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -13,13 +17,10 @@
 #include <chrono>
 #include <cstdint>
 #include <deque>
-#include <format>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <map>
-#include <psapi.h>
-#include <regex>
 #include <string>
 #include <vector>
 
@@ -66,6 +67,7 @@ const int TILE[36][8] = {{0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 1, 0, 0, 0, 1},
                          {1, 1, 1, 1, 1, 0, 1, 0}, {1, 1, 1, 1, 1, 1, 1, 1}};
 
 void PrintMemoryUsage() {
+#ifdef _WIN32
     // 自身のプロセスハンドルを取得
     HANDLE hProcess = GetCurrentProcess();
     PROCESS_MEMORY_COUNTERS pmc;
@@ -93,6 +95,10 @@ void PrintMemoryUsage() {
     } else {
         std::cerr << "メモリ情報の取得に失敗しました。" << std::endl;
     }
+#else
+    std::cout << "Memory usage reporting is only available on Windows."
+              << std::endl;
+#endif
 }
 
 Counter::Counter(int width) {
@@ -238,11 +244,13 @@ unsigned long long Counter::count() {
 
     table[0][0] = 1;
 
-    // mate配列の鍵を作る
+    // mate配列の鍵を作る（OpenMP使用時のみ）
+#ifdef _OPENMP
     vector<omp_lock_t> locks(state_size);
     for (unsigned long long i = 0; i < state_size; i++) {
         omp_init_lock(&locks[i]);
     }
+#endif
 
     for (int i = 0; i < w * w; i++) {
         int prev = i % 2;
@@ -269,22 +277,28 @@ unsigned long long Counter::count() {
                 unsigned long long newstate = put(i, j, k);
 
                 // 書き込み先のロックを取得
+#ifdef _OPENMP
                 omp_set_lock(&locks[newstate]);
+#endif
 
                 // 得られたmateへ到達する経路数を加算する
 
                 table[next][newstate] += table[prev][k];
 
                 // ロックを開放
+#ifdef _OPENMP
                 omp_unset_lock(&locks[newstate]);
+#endif
             }
         }
     }
 
     // ロックの解放
+#ifdef _OPENMP
     for (unsigned long long i = 0; i < state_size; i++) {
         omp_destroy_lock(&locks[i]);
     }
+#endif
 
     // evenまたはoddのmate数の和を計算する
     unsigned long long sum = 0;
@@ -361,11 +375,13 @@ string Counter::findCP() {
 
     table[0][0] = "";
 
-    // mate配列の鍵を作る
+    // mate配列の鍵を作る（OpenMP使用時のみ）
+#ifdef _OPENMP
     vector<omp_lock_t> locks(state_size);
     for (unsigned long long i = 0; i < state_size; i++) {
         omp_init_lock(&locks[i]);
     }
+#endif
 
     for (int i = 0; i < w * w; i++) {
         int prev = i % 2;
@@ -401,21 +417,27 @@ string Counter::findCP() {
                 tilestr = head + to_string(j);
 
                 // 書き込み先のロックを取得
+#ifdef _OPENMP
                 omp_set_lock(&locks[newstate]);
+#endif
 
                 // 得られたmateへ到達する展開図を書き込む
                 table[next][newstate] = table[prev][k] + tilestr;
 
                 // ロックを開放
+#ifdef _OPENMP
                 omp_unset_lock(&locks[newstate]);
+#endif
             }
         }
     }
 
     // ロックの解放
+#ifdef _OPENMP
     for (unsigned long long i = 0; i < state_size; i++) {
         omp_destroy_lock(&locks[i]);
     }
+#endif
 
     // evenまたはoddのmate数の和を計算する
     unsigned long long sum = 0;
@@ -439,6 +461,7 @@ string Counter::to_str(int a) {
 }
 
 std::string GetExeDirectory() {
+#ifdef _WIN32
     char path[MAX_PATH];
     // GetModuleFileNameA:
     // 実行中のモジュール（nullptrは自身を指す）のフルパスを取得 path:
@@ -468,6 +491,9 @@ std::string GetExeDirectory() {
     }
 
     return ""; // 見つからなかった場合
+#else
+    return "";
+#endif
 }
 
 void writeToFile(string output_path, string output_txt) {

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="8×8のドット絵から、平坦折り可能な折り紙の展開図をブラウザ上で探索します。"
+    />
+    <meta name="theme-color" content="#f4f0e8" />
+    <title>Dot Fold Lab — ドット絵から折り紙へ</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Dot Fold Lab ホーム">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <path d="M4 5h24v22H4z" />
+            <path d="M4 5l12 11L28 5M16 16v11" />
+          </svg>
+        </span>
+        <span>
+          <strong>Dot Fold Lab</strong>
+          <small>ドット絵から折り紙へ</small>
+        </span>
+      </a>
+      <div class="runtime-status" id="runtime-status" role="status">
+        <span class="status-dot"></span>
+        <span>計算エンジンを準備中</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">ORIGAMI × PIXEL ART</p>
+        <h1>描いたかたちを、<br /><em>折れる設計図</em>に。</h1>
+        <p class="lead">
+          8×8 のマスを塗って、外周が 32 になる図形をつくります。探索は端末内で完結し、入力した図形が送信されることはありません。
+        </p>
+      </section>
+
+      <section class="workspace" aria-label="Dot Fold Solver">
+        <article class="panel editor-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="step-label">01 / INPUT</span>
+              <h2>かたちを描く</h2>
+            </div>
+            <div class="toolbar" aria-label="編集ツール">
+              <button class="icon-button" id="undo-button" type="button" title="元に戻す" aria-label="元に戻す">
+                <svg viewBox="0 0 24 24"><path d="M9 7H5v-4M5 7c2-3 5-4 8-3 4 1 7 5 6 9s-5 7-9 6c-2-.4-4-2-5-4" /></svg>
+              </button>
+              <button class="icon-button" id="rotate-button" type="button" title="90度回転" aria-label="90度回転">
+                <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7" /></svg>
+              </button>
+              <button class="icon-button" id="clear-button" type="button" title="すべて消す" aria-label="すべて消す">
+                <svg viewBox="0 0 24 24"><path d="m4 17 9-12 7 5-7 10H7l-3-3Zm8-11 7 5M3 20h18" /></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid-wrap">
+            <div class="dot-grid" id="dot-grid" role="grid" aria-label="8×8 ドット入力"></div>
+            <div class="grid-corner top-left" aria-hidden="true"></div>
+            <div class="grid-corner top-right" aria-hidden="true"></div>
+            <div class="grid-corner bottom-left" aria-hidden="true"></div>
+            <div class="grid-corner bottom-right" aria-hidden="true"></div>
+          </div>
+
+          <div class="presets" aria-label="サンプル図形">
+            <span>サンプル</span>
+            <button type="button" data-preset="diamond">ダイヤ</button>
+            <button type="button" data-preset="frame">フレーム</button>
+            <button type="button" data-preset="steps">ステップ</button>
+          </div>
+
+          <div class="metrics" aria-live="polite">
+            <div>
+              <span>塗ったマス</span>
+              <strong id="cell-count">0</strong>
+            </div>
+            <div>
+              <span>境界線</span>
+              <strong id="border-count">0</strong>
+            </div>
+            <div class="metric-circuit">
+              <span>回路長</span>
+              <strong id="circuit-length">—</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel result-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="step-label">02 / SOLVE</span>
+              <h2>展開図をつくる</h2>
+            </div>
+            <span class="condition-pill" id="condition-pill">解析中</span>
+          </div>
+
+          <div class="result-stage" id="result-stage">
+            <div class="result-placeholder" id="result-placeholder">
+              <div class="paper-stack" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              <p>条件を満たす図形を描くと<br />ここに展開図が現れます</p>
+            </div>
+            <svg id="crease-pattern" viewBox="-0.5 -0.5 9 9" role="img" aria-label="生成された折り紙の展開図" hidden></svg>
+            <div class="solving-overlay" id="solving-overlay" hidden>
+              <div class="fold-loader" aria-hidden="true"></div>
+              <strong>折り方を探索しています</strong>
+              <span>図形によっては少し時間がかかります</span>
+            </div>
+          </div>
+
+          <div class="solve-controls">
+            <label for="search-density">
+              探索精度
+              <select id="search-density">
+                <option value="1">精密（おすすめ）</option>
+                <option value="3">標準</option>
+                <option value="10">高速</option>
+              </select>
+            </label>
+            <button class="primary-button" id="solve-button" type="button" disabled>
+              <span>展開図を生成</span>
+              <svg viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5" /></svg>
+            </button>
+          </div>
+
+          <p class="guidance" id="guidance">計算エンジンの準備を待っています。</p>
+
+          <div class="result-actions" id="result-actions" hidden>
+            <button id="download-button" type="button">SVGで保存</button>
+            <button id="share-button" type="button">この図形のURLをコピー</button>
+          </div>
+
+          <details class="search-log" id="search-log" hidden>
+            <summary>探索の詳細</summary>
+            <pre id="search-log-content"></pre>
+          </details>
+        </article>
+      </section>
+
+      <section class="how-it-works" aria-labelledby="how-title">
+        <div>
+          <span class="step-label">HOW IT WORKS</span>
+          <h2 id="how-title">ドットの輪郭を、正方形の折り線へ。</h2>
+        </div>
+        <ol>
+          <li><span>1</span><p><strong>輪郭を読む</strong>塗られたマスの境界から閉路を抽出します。</p></li>
+          <li><span>2</span><p><strong>折りを割り当てる</strong>角度と距離の条件から候補を絞り込みます。</p></li>
+          <li><span>3</span><p><strong>平坦性を検証する</strong>折り畳める展開図を動的計画法で探します。</p></li>
+        </ol>
+      </section>
+    </main>
+
+    <footer>
+      <p>Dot Fold Solver — browser edition</p>
+      <a href="https://github.com/sakusaku858/dotFoldSolver" target="_blank" rel="noreferrer">Original research code ↗</a>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

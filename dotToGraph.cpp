@@ -13,8 +13,13 @@
 #include <map>
 #include <queue>
 #include <set>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
 
 using namespace std;
 
@@ -628,6 +633,37 @@ int calcLoopLength(string dotstr)
 
 //
 //
+#ifdef __EMSCRIPTEN__
+static string wasm_output;
+
+extern "C" EMSCRIPTEN_KEEPALIVE int dotfold_loop_length(const char *dotstr)
+{
+    if (dotstr == nullptr || string(dotstr).size() != 64)
+        return -1;
+    return calcLoopLength(string(dotstr));
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE const char *dotfold_solve(const char *dotstr,
+                                                           int skip)
+{
+    if (dotstr == nullptr || string(dotstr).size() != 64)
+    {
+        wasm_output = "ERROR:invalid input";
+        return wasm_output.c_str();
+    }
+
+    // The browser worker reads the same text protocol as the desktop app.
+    // Capturing cout keeps the WebAssembly module quiet and gives JavaScript
+    // one deterministic response to parse.
+    ostringstream captured;
+    streambuf *previous = cout.rdbuf(captured.rdbuf());
+    findCP_old(string(dotstr), max(1, skip));
+    cout.rdbuf(previous);
+
+    wasm_output = captured.str();
+    return wasm_output.c_str();
+}
+#else
 int main(int argc, char *argv[])
 {
 
@@ -681,3 +717,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+#endif

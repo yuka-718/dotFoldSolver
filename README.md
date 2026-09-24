@@ -18,6 +18,10 @@
 
 `main.py` を実行すると Tkinter の入力画面が起動します。詳しくは `使い方.txt` を参照してください。
 
+### macOSアプリ
+
+`macos/DotFoldLab.swift` はWeb版をローカルに同梱して動かすmacOS用ラッパーです。アプリ内のループバックサーバーから画面とWebAssemblyを読み込むため、計算時に外部サーバーへ入力を送りません。
+
 ## WebAssembly をローカルでビルド
 
 [Emscripten](https://emscripten.org/) の `emcc` を利用します。
